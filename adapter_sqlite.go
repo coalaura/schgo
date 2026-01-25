@@ -260,7 +260,11 @@ func (a *SQLiteAdapter) NeedsModification(defined *Column, existing *ColumnInfo)
 	}
 
 	if defined.Nullable != existing.Nullable {
-		return true
+		// SQLite reports PRIMARY KEY as nullable unless explicitly NOT NULL.
+		// If both are PKs, ignore the mismatch to support existing tables.
+		if !(defined.PrimaryKey && existing.PrimaryKey) {
+			return true
+		}
 	}
 
 	if defined.Def != "" && existing.Default.Valid {
