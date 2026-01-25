@@ -55,9 +55,26 @@ func (s *Schema) Table(name string) *Table {
 
 // Apply synchronizes the database schema with the defined schema
 func (s *Schema) Apply() error {
-	tables, err := s.adapter.GetTables(s.db)
+	queries, err := s.Plan()
 	if err != nil {
 		return err
+	}
+
+	for _, query := range queries {
+		_, err := s.db.Exec(query)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// Plan generates the SQL queries that would be executed by Apply
+func (s *Schema) Plan() ([]string, error) {
+	tables, err := s.adapter.GetTables(s.db)
+	if err != nil {
+		return nil, err
 	}
 
 	existing := make(map[string]*TableInfo)
@@ -66,29 +83,15 @@ func (s *Schema) Apply() error {
 		existing[t.Name] = t
 	}
 
-	defined := make(map[string]*Table)
-
-	for _, t := range s.tables {
-		defined[t.Name] = t
-	}
+	var queries []string
 
 	for _, table := range s.tables {
 		existingTable, exists := existing[table.Name]
 		if !exists {
-			query := s.adapter.GenerateCreateTable(table)
-
-			_, err = s.db.Exec(query)
-			if err != nil {
-				return err
-			}
+			queries = append(queries, s.adapter.GenerateCreateTable(table))
 
 			for _, idx := range table.Indices {
-				query := s.adapter.GenerateCreateIndex(table.Name, idx)
-
-				_, err = s.db.Exec(query)
-				if err != nil {
-					return err
-				}
+				queries = append(queries, s.adapter.GenerateCreateIndex(table.Name, idx))
 			}
 
 			continue
@@ -96,29 +99,19 @@ func (s *Schema) Apply() error {
 
 		diff := s.computeTableDiff(table, existingTable)
 
-		queries, err := s.adapter.GenerateAlterTable(table.Name, diff)
+		alterQueries, err := s.adapter.GenerateAlterTable(table.Name, diff)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		for _, query := range queries {
-			_, err := s.db.Exec(query)
-			if err != nil {
-				return err
-			}
-		}
+		queries = append(queries, alterQueries...)
 
-		queries = s.generateIndexChanges(table, existingTable)
+		idxQueries := s.generateIndexChanges(table, existingTable)
 
-		for _, query := range queries {
-			_, err := s.db.Exec(query)
-			if err != nil {
-				return err
-			}
-		}
+		queries = append(queries, idxQueries...)
 	}
 
-	return nil
+	return queries, nil
 }
 
 func (s *Schema) computeTableDiff(defined *Table, existing *TableInfo) *TableDiff {
