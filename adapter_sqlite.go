@@ -223,7 +223,13 @@ func (a *SQLiteAdapter) GenerateAlterTable(tableName string, diff *TableDiff) ([
 	}
 
 	if len(diff.Modify) > 0 {
-		return nil, fmt.Errorf("sqlite does not support modifying existing columns in table %q", tableName)
+		cols := make([]string, 0, len(diff.Modify))
+
+		for _, m := range diff.Modify {
+			cols = append(cols, m.Column.Name)
+		}
+
+		return nil, fmt.Errorf("sqlite cannot modify columns in table %q: %s", tableName, strings.Join(cols, ", "))
 	}
 
 	return queries, nil
