@@ -1,5 +1,9 @@
 package schgo
 
+import "strings"
+
+var autoIncrTypes = []string{"INT", "INTEGER", "BIGINT", "SMALLINT", "TINYINT", "MEDIUMINT", "SERIAL", "BIGSERIAL"}
+
 // Table represents a database table definition
 type Table struct {
 	Name    string
@@ -31,7 +35,7 @@ func (t *Table) Primary(name, typ string) *Column {
 		Name:       name,
 		Type:       typ,
 		PrimaryKey: true,
-		AutoIncr:   true,
+		AutoIncr:   canAutoIncrement(typ),
 	}
 
 	t.Columns = append(t.Columns, col)
@@ -110,4 +114,20 @@ func (t *Table) UniqueIndex(name string, columns ...string) *Index {
 	t.Indices = append(t.Indices, idx)
 
 	return idx
+}
+
+func canAutoIncrement(typ string) bool {
+	upper := strings.ToUpper(typ)
+
+	for _, vt := range autoIncrTypes {
+		if upper == vt {
+			return true
+		}
+
+		if strings.HasPrefix(upper, vt+"(") || strings.HasPrefix(upper, vt+" ") {
+			return true
+		}
+	}
+
+	return false
 }
