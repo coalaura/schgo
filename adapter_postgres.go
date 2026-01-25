@@ -305,20 +305,38 @@ func (a *PostgresAdapter) NeedsModification(defined *Column, existing *ColumnInf
 		return true
 	}
 
-	if defined.Def != "" && existing.Default.Valid {
-		existingDefault := existing.Default.String
-
-		idx := strings.Index(existingDefault, "::")
-		if idx > 0 {
-			existingDefault = existingDefault[:idx]
-		}
-
-		if defined.Def != existingDefault {
-			return true
-		}
-	} else if defined.Def != "" || existing.Default.Valid {
+	if !pgDefaultsMatch(defined, existing) {
 		return true
 	}
 
 	return false
+}
+
+func pgDefaultsMatch(col *Column, existing *ColumnInfo) bool {
+	if col.Def == "" && existing.Default.Valid && strings.HasPrefix(existing.Default.String, "nextval(") {
+		return true
+	}
+
+	if !existing.Default.Valid {
+		return col.Def == ""
+	}
+
+	dbDef := existing.Default.String
+
+	if idx := strings.LastIndex(dbDef, "::"); idx != -1 {
+		dbDef = dbDef[:idx]
+	}
+
+	if col.Def == dbDef {
+		return true
+	}
+
+	if isNumericCol(col.Type) {
+		return areNumericallyEqual(col.Def, dbDef)
+	}
+
+	defVal, _ := unquoteLiteral(col.Def)
+	existVal, _ := unquoteLiteral(dbDef)
+
+	return defVal == existVal
 }

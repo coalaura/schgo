@@ -285,11 +285,7 @@ func (a *MySQLAdapter) NeedsModification(defined *Column, existing *ColumnInfo) 
 		return true
 	}
 
-	if defined.Def != "" && existing.Default.Valid {
-		if defined.Def != existing.Default.String {
-			return true
-		}
-	} else if defined.Def != "" || existing.Default.Valid {
+	if !defaultsMatch(defined, existing) {
 		return true
 	}
 

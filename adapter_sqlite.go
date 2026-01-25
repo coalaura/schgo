@@ -273,11 +273,7 @@ func (a *SQLiteAdapter) NeedsModification(defined *Column, existing *ColumnInfo)
 		}
 	}
 
-	if defined.Def != "" && existing.Default.Valid {
-		if defined.Def != existing.Default.String {
-			return true
-		}
-	} else if defined.Def != "" || existing.Default.Valid {
+	if !defaultsMatch(defined, existing) {
 		return true
 	}
 
