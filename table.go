@@ -1,9 +1,5 @@
 package schgo
 
-import "strings"
-
-var autoIncrTypes = []string{"INT", "INTEGER", "BIGINT", "SMALLINT", "TINYINT", "MEDIUMINT", "SERIAL", "BIGSERIAL"}
-
 // Table represents a database table definition
 type Table struct {
 	Name    string
@@ -15,8 +11,8 @@ type Table struct {
 type Column struct {
 	Name       string
 	Type       string
-	Def        string
-	Nullable   bool
+	Def        *string
+	Nullable   *bool
 	PrimaryKey bool
 	AutoIncr   bool
 	Uniq       bool
@@ -35,7 +31,7 @@ func (t *Table) Primary(name, typ string) *Column {
 		Name:       name,
 		Type:       typ,
 		PrimaryKey: true,
-		AutoIncr:   canAutoIncrement(typ),
+		AutoIncr:   isIntegerCol(typ),
 	}
 
 	t.Columns = append(t.Columns, col)
@@ -57,21 +53,21 @@ func (t *Table) Column(name, typ string) *Column {
 
 // NotNull sets the column as NOT NULL
 func (c *Column) NotNull() *Column {
-	c.Nullable = false
+	c.Nullable = ptr(false)
 
 	return c
 }
 
 // Null sets the column as nullable
 func (c *Column) Null() *Column {
-	c.Nullable = true
+	c.Nullable = ptr(true)
 
 	return c
 }
 
 // Default sets the default value
 func (c *Column) Default(val string) *Column {
-	c.Def = val
+	c.Def = &val
 
 	return c
 }
@@ -114,20 +110,4 @@ func (t *Table) UniqueIndex(name string, columns ...string) *Index {
 	t.Indices = append(t.Indices, idx)
 
 	return idx
-}
-
-func canAutoIncrement(typ string) bool {
-	upper := strings.ToUpper(typ)
-
-	for _, vt := range autoIncrTypes {
-		if upper == vt {
-			return true
-		}
-
-		if strings.HasPrefix(upper, vt+"(") || strings.HasPrefix(upper, vt+" ") {
-			return true
-		}
-	}
-
-	return false
 }

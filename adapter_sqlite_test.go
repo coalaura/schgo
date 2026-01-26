@@ -57,7 +57,7 @@ func TestSQLiteAdapter_GenerateCreateTable(t *testing.T) {
 		t.Fatalf("missing email definition: %s", sql)
 	}
 
-	if !strings.Contains(sql, "`age` INTEGER NOT NULL DEFAULT 18") {
+	if !strings.Contains(sql, "`age` INTEGER DEFAULT '18'") {
 		t.Fatalf("missing default: %s", sql)
 	}
 }
@@ -145,25 +145,25 @@ func TestSQLiteAdapter_NeedsModification(t *testing.T) {
 	}{
 		{
 			"type change",
-			&Column{Name: "c", Type: "INTEGER", Nullable: true},
+			&Column{Name: "c", Type: "INTEGER", Nullable: ptr(true)},
 			base,
 			true,
 		},
 		{
 			"nullability change",
-			&Column{Name: "c", Type: "TEXT", Nullable: false},
+			&Column{Name: "c", Type: "TEXT", Nullable: ptr(false)},
 			base,
 			true,
 		},
 		{
 			"default added",
-			&Column{Name: "c", Type: "TEXT", Nullable: true, Def: "1"},
+			&Column{Name: "c", Type: "TEXT", Nullable: ptr(true), Def: ptr("1")},
 			base,
 			true,
 		},
 		{
 			"default match",
-			&Column{Name: "c", Type: "TEXT", Nullable: true, Def: "1"},
+			&Column{Name: "c", Type: "TEXT", Nullable: ptr(true), Def: ptr("1")},
 			&ColumnInfo{
 				Name:     "c",
 				Type:     "TEXT",
@@ -174,7 +174,7 @@ func TestSQLiteAdapter_NeedsModification(t *testing.T) {
 		},
 		{
 			"no change",
-			&Column{Name: "c", Type: "TEXT", Nullable: true},
+			&Column{Name: "c", Type: "TEXT", Nullable: ptr(true)},
 			base,
 			false,
 		},

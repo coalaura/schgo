@@ -7,8 +7,16 @@ import (
 )
 
 func init() {
-	RegisterAdapter("sqlite", func() Adapter {
-		return &SQLiteAdapter{}
+	RegisterAdapter("sqlite", &AdapterInfo{
+		Factory: func() Adapter {
+			return &SQLiteAdapter{}
+		},
+		Matchers: []string{"sqlite"},
+		Probe: func(db *sql.DB) bool {
+			_, err := db.Exec("SELECT sqlite_version()")
+
+			return err == nil
+		},
 	})
 }
 
@@ -21,6 +29,10 @@ func (a *SQLiteAdapter) Name() string {
 
 func (a *SQLiteAdapter) QuoteIdentifier(name string) string {
 	return fmt.Sprintf("`%s`", name)
+}
+
+func (a *SQLiteAdapter) EscapeString(s string) string {
+	return fmt.Sprintf("'%s'", strings.ReplaceAll(s, "'", "''"))
 }
 
 func (a *SQLiteAdapter) GetTables(db *sql.DB) ([]*TableInfo, error) {
@@ -188,16 +200,20 @@ func (a *SQLiteAdapter) columnDefinition(col *Column) string {
 		}
 	}
 
-	if !col.Nullable && !col.PrimaryKey {
-		parts = append(parts, "NOT NULL")
+	if col.Nullable != nil && !col.PrimaryKey {
+		if *col.Nullable {
+			parts = append(parts, "NULL")
+		} else {
+			parts = append(parts, "NOT NULL")
+		}
 	}
 
 	if col.Uniq && !col.PrimaryKey {
 		parts = append(parts, "UNIQUE")
 	}
 
-	if col.Def != "" {
-		parts = append(parts, "DEFAULT", col.Def)
+	if col.Def != nil {
+		parts = append(parts, "DEFAULT", a.EscapeString(*col.Def))
 	}
 
 	return strings.Join(parts, " ")
@@ -265,7 +281,7 @@ func (a *SQLiteAdapter) NeedsModification(defined *Column, existing *ColumnInfo)
 		return true
 	}
 
-	if defined.Nullable != existing.Nullable {
+	if defined.Nullable != nil && *defined.Nullable != existing.Nullable {
 		// SQLite reports PRIMARY KEY as nullable unless explicitly NOT NULL.
 		// If both are PKs, ignore the mismatch to support existing tables.
 		if !(defined.PrimaryKey && existing.PrimaryKey) {

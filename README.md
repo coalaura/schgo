@@ -6,10 +6,7 @@
 
 - **Declarative Schema**: Define tables, columns, and indices using Go methods.
 - **Auto-Migration**: Automatically detects differences and applies changes (Create Table, Add/Drop/Modify Column, Index management).
-- **Multi-Database Support**:
-  - SQLite
-  - MySQL / MariaDB
-  - PostgreSQL
+- **SQLite Support**: Only supports SQLite at the moment but extendable via adapters.
 - **Fluent API**: clean, chainable syntax for defining columns.
 
 ## Installation

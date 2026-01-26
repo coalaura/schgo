@@ -68,21 +68,49 @@ func isNumericCol(typ string) bool {
 	return false
 }
 
-func defaultsMatch(col *Column, existing *ColumnInfo) bool {
-	if !existing.Default.Valid {
-		return col.Def == ""
+func isIntegerCol(typ string) bool {
+	u := strings.ToUpper(strings.TrimSpace(typ))
+
+	if idx := strings.IndexByte(u, '('); idx != -1 {
+		u = u[:idx]
 	}
 
-	if col.Def == existing.Default.String {
+	u = strings.Fields(u)[0]
+
+	switch u {
+	case "INT", "INTEGER", "BIGINT", "SMALLINT", "TINYINT", "MEDIUMINT":
+		return true
+	}
+
+	return false
+}
+
+func defaultsMatch(col *Column, existing *ColumnInfo) bool {
+	if col.Def == nil {
+		return true
+	}
+
+	if !existing.Default.Valid {
+		return false
+	}
+
+	want := *col.Def
+	got := existing.Default.String
+
+	if want == got {
 		return true
 	}
 
 	if isNumericCol(col.Type) {
-		return areNumericallyEqual(col.Def, existing.Default.String)
+		return areNumericallyEqual(want, got)
 	}
 
-	defVal, _ := unquoteLiteral(col.Def)
-	existVal, _ := unquoteLiteral(existing.Default.String)
+	wantVal, _ := unquoteLiteral(want)
+	gotVal, _ := unquoteLiteral(got)
 
-	return defVal == existVal
+	return wantVal == gotVal
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }
