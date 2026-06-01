@@ -206,6 +206,10 @@ func (s *Schema) indexMatches(defined *Index, existing *IndexInfo) bool {
 		}
 	}
 
+	if normalizeExpression(defined.Condition) != normalizeExpression(existing.Condition) {
+		return false
+	}
+
 	return true
 }
 

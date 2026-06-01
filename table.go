@@ -20,9 +20,10 @@ type Column struct {
 
 // Index represents an index definition
 type Index struct {
-	Name    string
-	Columns []string
-	Unique  bool
+	Name      string
+	Columns   []string
+	Condition string
+	Unique    bool
 }
 
 // Primary adds a primary key column
@@ -84,6 +85,13 @@ func (c *Column) AutoIncrement() *Column {
 	c.AutoIncr = true
 
 	return c
+}
+
+// Where adds a partial index filter clause
+func (i *Index) Where(cond string) *Index {
+	i.Condition = cond
+
+	return i
 }
 
 // Index adds an index to the table

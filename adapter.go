@@ -63,9 +63,10 @@ type ColumnInfo struct {
 
 // IndexInfo represents existing index information
 type IndexInfo struct {
-	Name    string
-	Columns []string
-	Unique  bool
+	Name      string
+	Columns   []string
+	Condition string
+	Unique    bool
 }
 
 // TableDiff represents differences between defined and existing table

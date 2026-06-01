@@ -133,25 +133,26 @@ func (a *SQLiteAdapter) getTableInfo(db *sql.DB, tableName string) (*TableInfo, 
 			continue
 		}
 
-		cols, err := a.getIndexColumns(db, name)
+		cols, cond, err := a.getIndexColumnsAndCondition(db, name, partial == 1)
 		if err != nil {
 			return nil, err
 		}
 
 		info.Indices = append(info.Indices, &IndexInfo{
-			Name:    name,
-			Columns: cols,
-			Unique:  unique == 1,
+			Name:      name,
+			Columns:   cols,
+			Unique:    unique == 1,
+			Condition: cond,
 		})
 	}
 
 	return info, idxRows.Err()
 }
 
-func (a *SQLiteAdapter) getIndexColumns(db *sql.DB, indexName string) ([]string, error) {
+func (a *SQLiteAdapter) getIndexColumnsAndCondition(db *sql.DB, indexName string, isPartial bool) ([]string, string, error) {
 	rows, err := db.Query(fmt.Sprintf("PRAGMA index_info(%s)", a.QuoteIdentifier(indexName)))
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	defer rows.Close()
@@ -170,7 +171,7 @@ func (a *SQLiteAdapter) getIndexColumns(db *sql.DB, indexName string) ([]string,
 
 		err = rows.Scan(&seqno, &cid, &name)
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
 
 		if !name.Valid || name.String == "" {
@@ -182,22 +183,41 @@ func (a *SQLiteAdapter) getIndexColumns(db *sql.DB, indexName string) ([]string,
 
 	err = rows.Err()
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
-	if hasExpression {
+	var condition string
+
+	if hasExpression || isPartial {
 		var indexSQL string
 
 		err = db.QueryRow("SELECT sql FROM sqlite_master WHERE type='index' AND name = ?", indexName).Scan(&indexSQL)
 		if err == nil {
-			parsedCols := parseIndexColumnsFromSQL(indexSQL)
-			if len(parsedCols) > 0 {
-				return parsedCols, nil
+			if hasExpression {
+				parsedCols := parseIndexColumnsFromSQL(indexSQL)
+				if len(parsedCols) > 0 {
+					columns = parsedCols
+				}
+			}
+
+			if isPartial {
+				condition = parseIndexConditionFromSQL(indexSQL)
 			}
 		}
 	}
 
-	return columns, nil
+	return columns, condition, nil
+}
+
+func parseIndexConditionFromSQL(indexSQL string) string {
+	upper := strings.ToUpper(indexSQL)
+
+	idx := strings.LastIndex(upper, " WHERE ")
+	if idx == -1 {
+		return ""
+	}
+
+	return indexSQL[idx+7:]
 }
 
 func (a *SQLiteAdapter) GenerateCreateTable(table *Table) string {
@@ -292,11 +312,18 @@ func (a *SQLiteAdapter) GenerateCreateIndex(tableName string, index *Index) stri
 		}
 	}
 
-	return fmt.Sprintf("CREATE %sINDEX %s ON %s (%s)",
+	var where string
+
+	if index.Condition != "" {
+		where = " WHERE " + index.Condition
+	}
+
+	return fmt.Sprintf("CREATE %sINDEX %s ON %s (%s)%s",
 		unique,
 		a.QuoteIdentifier(index.Name),
 		a.QuoteIdentifier(tableName),
 		strings.Join(quotedCols, ", "),
+		where,
 	)
 }
 
