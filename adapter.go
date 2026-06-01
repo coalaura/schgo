@@ -54,10 +54,10 @@ type TableInfo struct {
 
 // ColumnInfo represents existing column information
 type ColumnInfo struct {
+	Default    sql.NullString
 	Name       string
 	Type       string
 	Nullable   bool
-	Default    sql.NullString
 	PrimaryKey bool
 }
 

@@ -156,13 +156,16 @@ func (a *SQLiteAdapter) getIndexColumns(db *sql.DB, indexName string) ([]string,
 
 	defer rows.Close()
 
-	var columns []string
+	var (
+		columns       []string
+		hasExpression bool
+	)
 
 	for rows.Next() {
 		var (
 			seqno int
 			cid   int
-			name  string
+			name  sql.NullString
 		)
 
 		err = rows.Scan(&seqno, &cid, &name)
@@ -170,10 +173,31 @@ func (a *SQLiteAdapter) getIndexColumns(db *sql.DB, indexName string) ([]string,
 			return nil, err
 		}
 
-		columns = append(columns, name)
+		if !name.Valid || name.String == "" {
+			hasExpression = true
+		} else {
+			columns = append(columns, name.String)
+		}
 	}
 
-	return columns, rows.Err()
+	err = rows.Err()
+	if err != nil {
+		return nil, err
+	}
+
+	if hasExpression {
+		var indexSQL string
+
+		err = db.QueryRow("SELECT sql FROM sqlite_master WHERE type='index' AND name = ?", indexName).Scan(&indexSQL)
+		if err == nil {
+			parsedCols := parseIndexColumnsFromSQL(indexSQL)
+			if len(parsedCols) > 0 {
+				return parsedCols, nil
+			}
+		}
+	}
+
+	return columns, nil
 }
 
 func (a *SQLiteAdapter) GenerateCreateTable(table *Table) string {
@@ -261,7 +285,11 @@ func (a *SQLiteAdapter) GenerateCreateIndex(tableName string, index *Index) stri
 	quotedCols := make([]string, len(index.Columns))
 
 	for i, col := range index.Columns {
-		quotedCols[i] = a.QuoteIdentifier(col)
+		if isExpression(col) {
+			quotedCols[i] = col
+		} else {
+			quotedCols[i] = a.QuoteIdentifier(col)
+		}
 	}
 
 	return fmt.Sprintf("CREATE %sINDEX %s ON %s (%s)",
@@ -294,4 +322,76 @@ func (a *SQLiteAdapter) NeedsModification(defined *Column, existing *ColumnInfo)
 	}
 
 	return false
+}
+
+func parseIndexColumnsFromSQL(indexSQL string) []string {
+	if indexSQL == "" {
+		return nil
+	}
+
+	start := strings.IndexByte(indexSQL, '(')
+	if start == -1 {
+		return nil
+	}
+
+	depth := 1
+	end := -1
+
+	for i := start + 1; i < len(indexSQL); i++ {
+		if indexSQL[i] == '(' {
+			depth++
+		} else if indexSQL[i] == ')' {
+			depth--
+			if depth == 0 {
+				end = i
+
+				break
+			}
+		}
+	}
+
+	if end == -1 {
+		return nil
+	}
+
+	colsContent := indexSQL[start+1 : end]
+
+	var (
+		cols       []string
+		current    strings.Builder
+		parenDepth int
+	)
+
+	for i := 0; i < len(colsContent); i++ {
+		char := colsContent[i]
+
+		if char == '(' {
+			parenDepth++
+
+			current.WriteByte(char)
+		} else if char == ')' {
+			parenDepth--
+
+			current.WriteByte(char)
+		} else if char == ',' && parenDepth == 0 {
+			cols = append(cols, cleanIndexColumn(current.String()))
+
+			current.Reset()
+		} else {
+			current.WriteByte(char)
+		}
+	}
+
+	if current.Len() > 0 {
+		cols = append(cols, cleanIndexColumn(current.String()))
+	}
+
+	return cols
+}
+
+func cleanIndexColumn(col string) string {
+	col = strings.TrimSpace(col)
+	col = strings.Trim(col, "`\"' ")
+
+	return col
 }

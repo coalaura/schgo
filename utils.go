@@ -111,6 +111,6 @@ func defaultsMatch(col *Column, existing *ColumnInfo) bool {
 	return wantVal == gotVal
 }
 
-func ptr[T any](v T) *T {
-	return &v
+func isExpression(col string) bool {
+	return strings.ContainsAny(col, " +-*/()")
 }

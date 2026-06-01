@@ -145,25 +145,25 @@ func TestSQLiteAdapter_NeedsModification(t *testing.T) {
 	}{
 		{
 			"type change",
-			&Column{Name: "c", Type: "INTEGER", Nullable: ptr(true)},
+			&Column{Name: "c", Type: "INTEGER", Nullable: new(true)},
 			base,
 			true,
 		},
 		{
 			"nullability change",
-			&Column{Name: "c", Type: "TEXT", Nullable: ptr(false)},
+			&Column{Name: "c", Type: "TEXT", Nullable: new(false)},
 			base,
 			true,
 		},
 		{
 			"default added",
-			&Column{Name: "c", Type: "TEXT", Nullable: ptr(true), Def: ptr("1")},
+			&Column{Name: "c", Type: "TEXT", Nullable: new(true), Def: new("1")},
 			base,
 			true,
 		},
 		{
 			"default match",
-			&Column{Name: "c", Type: "TEXT", Nullable: ptr(true), Def: ptr("1")},
+			&Column{Name: "c", Type: "TEXT", Nullable: new(true), Def: new("1")},
 			&ColumnInfo{
 				Name:     "c",
 				Type:     "TEXT",
@@ -174,7 +174,7 @@ func TestSQLiteAdapter_NeedsModification(t *testing.T) {
 		},
 		{
 			"no change",
-			&Column{Name: "c", Type: "TEXT", Nullable: ptr(true)},
+			&Column{Name: "c", Type: "TEXT", Nullable: new(true)},
 			base,
 			false,
 		},

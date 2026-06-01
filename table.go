@@ -53,14 +53,14 @@ func (t *Table) Column(name, typ string) *Column {
 
 // NotNull sets the column as NOT NULL
 func (c *Column) NotNull() *Column {
-	c.Nullable = ptr(false)
+	c.Nullable = new(false)
 
 	return c
 }
 
 // Null sets the column as nullable
 func (c *Column) Null() *Column {
-	c.Nullable = ptr(true)
+	c.Nullable = new(true)
 
 	return c
 }

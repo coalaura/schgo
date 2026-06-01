@@ -2,6 +2,7 @@ package schgo
 
 import (
 	"database/sql"
+	"strings"
 )
 
 // Schema manages database schema migrations
@@ -200,10 +201,26 @@ func (s *Schema) indexMatches(defined *Index, existing *IndexInfo) bool {
 	}
 
 	for i, col := range defined.Columns {
-		if col != existing.Columns[i] {
+		if normalizeExpression(col) != normalizeExpression(existing.Columns[i]) {
 			return false
 		}
 	}
 
 	return true
+}
+
+func normalizeExpression(str string) string {
+	str = strings.ToLower(str)
+
+	var out strings.Builder
+
+	for i := 0; i < len(str); i++ {
+		char := str[i]
+
+		if char != ' ' && char != '`' && char != '"' && char != '\'' {
+			out.WriteByte(char)
+		}
+	}
+
+	return out.String()
 }
