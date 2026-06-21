@@ -231,7 +231,7 @@ func (a *SQLiteAdapter) GenerateCreateTable(table *Table) string {
 }
 
 func (a *SQLiteAdapter) columnDefinition(col *Column) string {
-	parts := make([]string, 0, 2)
+	parts := make([]string, 0, 6)
 
 	parts = append(parts, a.QuoteIdentifier(col.Name))
 	parts = append(parts, col.Type)

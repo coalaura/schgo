@@ -78,7 +78,7 @@ func (s *Schema) Plan() ([]string, error) {
 		return nil, err
 	}
 
-	existing := make(map[string]*TableInfo)
+	existing := make(map[string]*TableInfo, len(tables))
 
 	for _, t := range tables {
 		existing[t.Name] = t
@@ -116,19 +116,15 @@ func (s *Schema) Plan() ([]string, error) {
 }
 
 func (s *Schema) computeTableDiff(defined *Table, existing *TableInfo) *TableDiff {
-	diff := &TableDiff{
-		Add:    make([]*Column, 0),
-		Drop:   make([]string, 0),
-		Modify: make([]*ColumnChange, 0),
-	}
+	diff := &TableDiff{}
 
-	existingCols := make(map[string]*ColumnInfo)
+	existingCols := make(map[string]*ColumnInfo, len(existing.Columns))
 
 	for _, col := range existing.Columns {
 		existingCols[col.Name] = col
 	}
 
-	definedCols := make(map[string]*Column)
+	definedCols := make(map[string]*Column, len(defined.Columns))
 
 	for _, col := range defined.Columns {
 		definedCols[col.Name] = col
@@ -162,13 +158,13 @@ func (s *Schema) computeTableDiff(defined *Table, existing *TableInfo) *TableDif
 func (s *Schema) generateIndexChanges(defined *Table, existing *TableInfo) []string {
 	var queries []string
 
-	existingIdx := make(map[string]*IndexInfo)
+	existingIdx := make(map[string]*IndexInfo, len(existing.Indices))
 
 	for _, idx := range existing.Indices {
 		existingIdx[idx.Name] = idx
 	}
 
-	definedIdx := make(map[string]*Index)
+	definedIdx := make(map[string]*Index, len(defined.Indices))
 
 	for _, idx := range defined.Indices {
 		definedIdx[idx.Name] = idx
@@ -214,17 +210,46 @@ func (s *Schema) indexMatches(defined *Index, existing *IndexInfo) bool {
 }
 
 func normalizeExpression(str string) string {
-	str = strings.ToLower(str)
+	var (
+		built bool
+		out   strings.Builder
+	)
 
-	var out strings.Builder
-
-	for i := 0; i < len(str); i++ {
+	for i := range len(str) {
 		char := str[i]
 
-		if char != ' ' && char != '`' && char != '"' && char != '\'' {
-			out.WriteByte(char)
+		if char == ' ' || char == '`' || char == '"' || char == '\'' {
+			if !built {
+				out.Grow(len(str))
+				out.WriteString(str[:i])
+
+				built = true
+			}
+
+			continue
+		}
+
+		lowerChar := char
+
+		if char >= 'A' && char <= 'Z' {
+			lowerChar = char + ('a' - 'A')
+		}
+
+		if built {
+			out.WriteByte(lowerChar)
+		} else if lowerChar != char {
+			out.Grow(len(str))
+
+			out.WriteString(str[:i])
+			out.WriteByte(lowerChar)
+
+			built = true
 		}
 	}
 
-	return out.String()
+	if built {
+		return out.String()
+	}
+
+	return str
 }
